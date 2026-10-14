@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Presensi Anggota IPM Pro - Dashboard & Google Maps Integration</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- HTML5 QR Code Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+    <!-- QRCode.js Generator Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- External Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 font-sans antialiased">
+
+    <!-- Header Navigation -->
+    <header class="bg-amber-500 text-slate-900 shadow-lg sticky top-0 z-40 border-b-2 border-amber-600">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="bg-slate-900 text-amber-400 p-2 rounded-xl shadow-md">
+                    <i class="fa-solid fa-id-card text-2xl"></i>
+                </div>
+                <div>
+                    <h1 id="brandOrgName" class="text-xl font-black tracking-tight flex items-center">
+                        Presensi Anggota IPM 
+                        <span class="ml-2 text-xs bg-slate-900 text-amber-300 px-2.5 py-0.5 rounded-full font-extrabold">Pro v9.0</span>
+                    </h1>
+                    <p class="text-xs font-bold text-slate-800">Ikatan Pelajar Muhammadiyah &bull; Live Google Maps GPS</p>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-2">
+                <button onclick="openViewerModal()" class="bg-slate-900 hover:bg-slate-800 text-amber-300 px-3 py-2 rounded-xl text-xs font-bold transition flex items-center shadow">
+                    <i class="fa-solid fa-desktop mr-1.5"></i> Mode Kiosk
+                </button>
+                <div id="adminBadge" class="hidden md:flex items-center bg-slate-900/80 text-emerald-400 text-xs px-3 py-1.5 rounded-full border border-emerald-500/30">
+                    <span class="w-2 h-2 bg-emerald-400 rounded-full mr-2 animate-pulse"></span>
+                    Admin Active
+                </div>
+                <button id="btnSwitchView" onclick="toggleMainView()" class="bg-slate-900 hover:bg-slate-800 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center shadow">
+                    <i class="fa-solid fa-user-shield mr-1.5 text-amber-400" id="switchIcon"></i>
+                    <span id="switchText">Portal Admin</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- ================= PORTAL ANGGOTA ================= -->
+        <section id="karyawanView" class="space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Absensi Card -->
+                <div class="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                    <div class="text-center bg-slate-900 text-white p-4 rounded-xl mb-4 shadow-inner">
+                        <div id="liveTime" class="text-3xl font-extrabold tracking-wider text-amber-400">00:00:00 WIB</div>
+                        <div id="liveDate" class="text-xs text-slate-400 mt-1 uppercase tracking-widest font-medium">Loading Date...</div>
+                    </div>
+
+                    <!-- Live GPS Address Status Box -->
+                    <div class="bg-slate-50 border border-slate-200 p-3 rounded-xl mb-4 text-xs font-semibold text-slate-700 flex items-center space-x-2">
+                        <i class="fa-solid fa-location-dot text-red-500 text-base animate-bounce"></i>
+                        <div class="overflow-hidden flex-1">
+                            <span class="text-[10px] text-slate-400 uppercase font-bold block">Lokasi Live Client Auto-GPS:</span>
+                            <span id="liveGpsAddress" class="text-slate-800 font-bold truncate block">Mendeteksi lokasi...</span>
+                        </div>
+                    </div>
+
+                    <!-- Mode Selector Tab -->
+                    <div class="grid grid-cols-2 gap-1 bg-slate-100 p-1 rounded-xl mb-5">
+                        <button type="button" onclick="switchCheckinMode('instant')" id="modeInstantBtn" class="py-2 text-xs font-bold rounded-lg bg-amber-500 text-slate-900 shadow-sm transition">
+                            <i class="fa-solid fa-bolt mr-1"></i> Scan Instan
+                        </button>
+                        <button type="button" onclick="switchCheckinMode('manual')" id="modeManualBtn" class="py-2 text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900 transition">
+                            <i class="fa-solid fa-pen-to-square mr-1"></i> Input Manual
+                        </button>
+                    </div>
+
+                    <!-- MENU 1: ABSENSI INSTAN (SCANNER QR) -->
+                    <div id="instantScanSection" class="space-y-4">
+                        <div class="bg-amber-50 border border-amber-200 p-3 rounded-xl text-amber-900 text-xs flex items-center space-x-2">
+                            <i class="fa-solid fa-camera text-base text-amber-600"></i>
+                            <div>
+                                <strong class="block">Auto-Verify QR Code</strong>
+                                Arahkan Kartu Anggota ke kamera. Terverifikasi otomatis.
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Sesi Kegiatan <span class="text-red-500">*</span></label>
+                            <select id="instantShiftSelect" class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-xs rounded-lg p-2.5 font-semibold"></select>
+                        </div>
+
+                        <!-- Frame Kamera Persegi Tinggi Simetris -->
+                        <div class="relative bg-slate-900 rounded-2xl overflow-hidden border-2 border-dashed border-amber-500 w-full aspect-square flex items-center justify-center shadow-md max-w-[280px] mx-auto">
+                            <div id="qr-reader" class="w-full h-full"></div>
+                        </div>
+
+                        <div id="instantScanStatus" class="p-3 text-center rounded-xl text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200 transition-all">
+                            Menunggu pindaian Kartu Anggota IPM...
+                        </div>
+
+                        <button type="button" onclick="initInstantScanner()" class="w-full bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold py-2.5 rounded-xl transition flex items-center justify-center shadow">
+                            <i class="fa-solid fa-rotate mr-2 text-amber-400"></i> Restart Kamera Scanner
+                        </button>
+                    </div>
+
+                    <!-- MENU 2: FORM MANUAL & SELFIE -->
+                    <form id="attendanceForm" onsubmit="handleAttendanceSubmit(event)" class="space-y-4 hidden">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Pilih Anggota <span class="text-red-500">*</span></label>
+                            <select id="empSelect" required class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-xs rounded-lg p-2.5 font-medium">
+                                <option value="">-- Pilih Nama Anda --</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Tipe Presensi <span class="text-red-500">*</span></label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <label class="flex items-center p-2.5 border rounded-lg cursor-pointer hover:bg-slate-50 border-slate-200 text-xs font-semibold">
+                                    <input type="radio" name="attendanceType" value="Masuk" checked class="w-4 h-4 text-amber-500 focus:ring-amber-400 mr-2">
+                                    <span>Absen Masuk</span>
+                                </label>
+                                <label class="flex items-center p-2.5 border rounded-lg cursor-pointer hover:bg-slate-50 border-slate-200 text-xs font-semibold">
+                                    <input type="radio" name="attendanceType" value="Keluar" class="w-4 h-4 text-amber-500 focus:ring-amber-400 mr-2">
+                                    <span>Absen Keluar</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Sesi / Shift Kegiatan <span class="text-red-500">*</span></label>
+                            <select id="shiftSelect" required class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-xs rounded-lg p-2.5">
+                                <option value="">-- Pilih Sesi --</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Foto Selfie <span class="text-red-500">*</span></label>
+                            <div class="relative bg-slate-100 rounded-xl overflow-hidden border border-slate-300 aspect-video flex items-center justify-center">
+                                <video id="webcam" autoplay playsinline class="w-full h-full object-cover hidden"></video>
+                                <img id="photoPreview" class="w-full h-full object-cover hidden" alt="Foto Absen">
+                                <div id="cameraPlaceholder" class="text-center p-4">
+                                    <i class="fa-solid fa-camera text-3xl text-slate-400 mb-2"></i>
+                                    <p class="text-xs text-slate-500">Kamera belum aktif</p>
+                                </div>
+                            </div>
+                            <div class="flex gap-2 mt-2">
+                                <button type="button" onclick="startCamera()" id="btnStartCam" class="flex-1 bg-slate-800 hover:bg-slate-900 text-white text-xs py-2 px-3 rounded-lg font-medium transition flex items-center justify-center">
+                                    <i class="fa-solid fa-video mr-1.5 text-amber-400"></i> Buka Kamera
+                                </button>
+                                <button type="button" onclick="capturePhoto()" id="btnCapture" disabled class="flex-1 bg-amber-500 disabled:opacity-50 hover:bg-amber-600 text-slate-900 text-xs py-2 px-3 rounded-lg font-bold transition flex items-center justify-center">
+                                    <i class="fa-solid fa-circle-dot mr-1.5"></i> Ambil Foto
+                                </button>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Lokasi Auto GPS Client</label>
+                            <input type="text" id="locationInput" readonly required class="bg-slate-100 border border-slate-300 text-slate-700 text-xs rounded-lg block w-full p-2.5 font-semibold">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Catatan (Opsional)</label>
+                            <textarea id="attendanceNotes" rows="2" placeholder="Catatan kegiatan..." class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-xs rounded-lg p-2.5"></textarea>
+                        </div>
+
+                        <button type="submit" class="w-full bg-slate-900 hover:bg-slate-800 text-amber-400 font-bold py-3 px-4 rounded-xl shadow-md transition text-sm flex items-center justify-center">
+                            <i class="fa-solid fa-paper-plane mr-2"></i> Kirim Presensi Manual
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Personal History Log Card -->
+                <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-base font-bold text-slate-800 flex items-center">
+                            <i class="fa-solid fa-clock-rotate-left mr-2 text-amber-500"></i> Riwayat Presensi Anggota Hari Ini
+                        </h2>
+                        <span id="todayCount" class="text-xs bg-amber-50 text-amber-800 font-bold px-2.5 py-1 rounded-full border border-amber-200">0 Data</span>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-xs text-left text-slate-600">
+                            <thead class="text-xs text-slate-700 uppercase bg-slate-100">
+                                <tr>
+                                    <th class="px-3 py-3 rounded-l-lg">Waktu</th>
+                                    <th class="px-3 py-3">Anggota IPM</th>
+                                    <th class="px-3 py-3">Sesi</th>
+                                    <th class="px-3 py-3">Lokasi / Maps</th>
+                                    <th class="px-3 py-3">Status</th>
+                                    <th class="px-3 py-3 text-center rounded-r-lg">Detail</th>
+                                </tr>
+                            </thead>
+                            <tbody id="todayAttendanceTable" class="divide-y divide-slate-100">
+                                <tr><td colspan="6" class="text-center py-8 text-slate-400">Belum ada data presensi hari ini.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= DASHBOARD ADMIN ================= -->
+        <section id="adminView" class="hidden space-y-6">
+            <div class="flex flex-wrap border-b border-slate-200 gap-2">
+                <button onclick="switchAdminTab('dashboard')" id="tabBtnDashboard" class="py-2.5 px-4 text-xs font-bold rounded-t-lg border-b-2 border-amber-500 text-amber-600 bg-white">
+                    <i class="fa-solid fa-chart-pie mr-1.5"></i> Dashboard & Pengaturan
+                </button>
+                <button onclick="switchAdminTab('rekap')" id="tabBtnRekap" class="py-2.5 px-4 text-xs font-bold rounded-t-lg border-b-2 border-transparent text-slate-500 hover:text-slate-700">
+                    <i class="fa-solid fa-map-location-dot mr-1.5"></i> Rekap Absensi, Foto & Maps
+                </button>
+                <button onclick="switchAdminTab('karyawan')" id="tabBtnKaryawan" class="py-2.5 px-4 text-xs font-bold rounded-t-lg border-b-2 border-transparent text-slate-500 hover:text-slate-700">
+                    <i class="fa-solid fa-id-card mr-1.5"></i> Data Anggota & QR
+                </button>
+                <button onclick="switchAdminTab('master')" id="tabBtnMaster" class="py-2.5 px-4 text-xs font-bold rounded-t-lg border-b-2 border-transparent text-slate-500 hover:text-slate-700">
+                    <i class="fa-solid fa-layer-group mr-1.5"></i> Master Sesi & Bidang
+                </button>
+                <button onclick="logoutAdmin()" class="ml-auto py-2 px-3 text-xs font-bold text-red-600 hover:bg-red-50 rounded-lg transition flex items-center">
+                    <i class="fa-solid fa-right-from-bracket mr-1"></i> Logout
+                </button>
+            </div>
+
+            <!-- TAB 0: DASHBOARD & PENGATURAN -->
+            <div id="adminTabDashboard" class="space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
+                        <div class="w-12 h-12 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center text-xl font-bold"><i class="fa-solid fa-users"></i></div>
+                        <div>
+                            <div class="text-xs text-slate-500 font-semibold uppercase">Total Anggota</div>
+                            <div id="dashTotalEmp" class="text-2xl font-black text-slate-800">0</div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
+                        <div class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center text-xl font-bold"><i class="fa-solid fa-clipboard-check"></i></div>
+                        <div>
+                            <div class="text-xs text-slate-500 font-semibold uppercase">Hadir Hari Ini</div>
+                            <div id="dashTotalHadir" class="text-2xl font-black text-emerald-600">0</div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
+                        <div class="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center text-xl font-bold"><i class="fa-solid fa-bolt"></i></div>
+                        <div>
+                            <div class="text-xs text-slate-500 font-semibold uppercase">Scan Instan</div>
+                            <div id="dashTotalScan" class="text-2xl font-black text-indigo-600">0</div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
+                        <div class="w-12 h-12 bg-sky-100 text-sky-600 rounded-xl flex items-center justify-center text-xl font-bold"><i class="fa-solid fa-map"></i></div>
+                        <div>
+                            <div class="text-xs text-slate-500 font-semibold uppercase">GPS Aktif</div>
+                            <div class="text-xs font-bold text-sky-600 mt-1"><i class="fa-solid fa-circle-check"></i> Realtime API</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                    <h3 class="text-sm font-bold text-slate-800 border-b pb-3 flex items-center">
+                        <i class="fa-solid fa-gears text-amber-600 mr-2"></i> Pengaturan Konfigurasi Organisasi & Kantor Pusat
+                    </h3>
+                    <form onsubmit="handleSaveSettings(event)" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Nama Organisasi / Cabang</label>
+                            <input type="text" id="settingOrgName" required class="w-full bg-slate-50 border border-slate-300 text-xs rounded-lg p-2.5 font-semibold">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Alamat / Lokasi Kantor Pusat</label>
+                            <input type="text" id="settingOfficeLocation" required class="w-full bg-slate-50 border border-slate-300 text-xs rounded-lg p-2.5 font-semibold">
+                        </div>
+                        <div class="sm:col-span-2 pt-2">
+                            <button type="submit" class="bg-amber-500 hover:bg-amber-600 text-slate-900 text-xs font-bold px-5 py-2.5 rounded-xl shadow transition">
+                                <i class="fa-solid fa-floppy-disk mr-1.5"></i> Simpan Pengaturan
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- TAB 1: REKAP ABSENSI, FOTO & GOOGLE MAPS -->
+            <div id="adminTabRekap" class="hidden space-y-6">
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap gap-3 items-center justify-between">
+                    <div class="flex flex-wrap gap-2 items-center flex-1">
+                        <input type="text" id="searchFilter" oninput="renderAdminAttendanceTable()" placeholder="Cari NBA / Nama..." class="bg-slate-50 border border-slate-300 text-xs rounded-lg p-2 w-44">
+                        <select id="deptFilter" onchange="renderAdminAttendanceTable()" class="bg-slate-50 border border-slate-300 text-xs rounded-lg p-2">
+                            <option value="">Semua Bidang/Ranting</option>
+                        </select>
+                        <input type="date" id="dateFilter" onchange="renderAdminAttendanceTable()" class="bg-slate-50 border border-slate-300 text-xs rounded-lg p-2">
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="exportToCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-2 rounded-lg font-semibold transition flex items-center">
+                            <i class="fa-solid fa-file-excel mr-1.5"></i> Ekspor CSV
+                        </button>
+                        <button onclick="window.print()" class="bg-slate-800 hover:bg-slate-900 text-white text-xs px-3 py-2 rounded-lg font-semibold transition flex items-center">
+                            <i class="fa-solid fa-print mr-1.5"></i> Cetak Laporan
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-xs text-left text-slate-600">
+                            <thead class="text-xs text-slate-700 uppercase bg-slate-100">
+                                <tr>
+                                    <th class="px-4 py-3">Waktu</th>
+                                    <th class="px-4 py-3">Foto</th>
+                                    <th class="px-4 py-3">Anggota</th>
+                                    <th class="px-4 py-3">Bidang</th>
+                                    <th class="px-4 py-3">Lokasi (Google Maps)</th>
+                                    <th class="px-4 py-3">Metode</th>
+                                    <th class="px-4 py-3">Tipe</th>
+                                    <th class="px-4 py-3 text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminAttendanceTable" class="divide-y divide-slate-100">
+                                <tr><td colspan="8" class="text-center py-6">Memuat data...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: DATA ANGGOTA & QR -->
+            <div id="adminTabKaryawan" class="hidden space-y-6">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-base font-bold text-slate-800">Data Anggota IPM & Cetak QR Code</h2>
+                    <button onclick="openEmployeeModal()" class="bg-amber-500 hover:bg-amber-600 text-slate-900 text-xs px-3.5 py-2 rounded-lg font-bold transition flex items-center">
+                        <i class="fa-solid fa-user-plus mr-1.5"></i> Tambah Anggota
+                    </button>
+                </div>
+
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-xs text-left text-slate-600">
+                            <thead class="text-xs text-slate-700 uppercase bg-slate-100">
+                                <tr>
+                                    <th class="px-4 py-3">NBA</th>
+                                    <th class="px-4 py-3">Nama Lengkap</th>
+                                    <th class="px-4 py-3">Bidang / Ranting</th>
+                                    <th class="px-4 py-3">Jabatan</th>
+                                    <th class="px-4 py-3 text-center">Barcode / QR</th>
+                                    <th class="px-4 py-3 text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminEmployeeTable" class="divide-y divide-slate-100">
+                                <tr><td colspan="6" class="text-center py-6">Belum ada data anggota.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 3: MASTER DATA & SHIFT -->
+            <div id="adminTabMaster" class="hidden space-y-6">
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                    <h3 class="font-bold text-sm text-slate-800 border-b pb-2 flex justify-between items-center">
+                        <span><i class="fa-solid fa-clock text-amber-600 mr-2"></i> Master Sesi Kegiatan</span>
+                    </h3>
+                    <form onsubmit="handleAddShift(event)" class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <input type="text" id="newShiftNameInput" required placeholder="Sesi (Contoh: Sesi Pagi)" class="bg-slate-50 border border-slate-300 text-xs rounded-lg p-2.5">
+                        <input type="text" id="newShiftTimeInput" required placeholder="Jam (Contoh: 08:00 - 12:00)" class="bg-slate-50 border border-slate-300 text-xs rounded-lg p-2.5">
+                        <button type="submit" class="bg-amber-500 hover:bg-amber-600 text-slate-900 text-xs px-4 py-2.5 rounded-lg font-bold">
+                            <i class="fa-solid fa-plus mr-1"></i> Tambah Sesi
+                        </button>
+                    </form>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-xs text-left text-slate-600 mt-2">
+                            <thead class="bg-slate-100 text-slate-700">
+                                <tr>
+                                    <th class="p-2.5">Sesi</th>
+                                    <th class="p-2.5">Waktu</th>
+                                    <th class="p-2.5 text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="shiftList" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                        <h3 class="font-bold text-sm text-slate-800 border-b pb-2">Master Bidang / Ranting</h3>
+                        <form onsubmit="handleAddDepartment(event)" class="flex gap-2">
+                            <input type="text" id="newDeptInput" required placeholder="Bidang Baru" class="bg-slate-50 border border-slate-300 text-xs rounded-lg p-2 flex-1">
+                            <button type="submit" class="bg-slate-900 hover:bg-slate-800 text-amber-400 text-xs px-3 py-2 rounded-lg font-bold">Tambah</button>
+                        </form>
+                        <ul id="departmentList" class="divide-y divide-slate-100 text-xs"></ul>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                        <h3 class="font-bold text-sm text-slate-800 border-b pb-2">Master Jabatan</h3>
+                        <form onsubmit="handleAddPosition(event)" class="flex gap-2">
+                            <input type="text" id="newPosInput" required placeholder="Jabatan Baru" class="bg-slate-50 border border-slate-300 text-xs rounded-lg p-2 flex-1">
+                            <button type="submit" class="bg-amber-500 hover:bg-amber-600 text-slate-900 text-xs px-3 py-2 rounded-lg font-bold">Tambah</button>
+                        </form>
+                        <ul id="positionList" class="divide-y divide-slate-100 text-xs"></ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- MODAL: LOGIN ADMIN -->
+    <div id="loginModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-5">
+            <div class="text-center">
+                <div class="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <i class="fa-solid fa-lock text-xl"></i>
+                </div>
+                <h3 class="text-lg font-bold text-slate-800">Autentikasi Admin IPM</h3>
+            </div>
+            <form onsubmit="handleAdminLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Username</label>
+                    <input type="text" id="adminUser" required autocomplete="off" class="w-full bg-slate-50 border border-slate-300 text-xs rounded-lg p-2.5">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Password</label>
+                    <input type="password" id="adminPass" required autocomplete="off" class="w-full bg-slate-50 border border-slate-300 text-xs rounded-lg p-2.5">
+                </div>
+                <div class="flex gap-2 pt-2">
+                    <button type="button" onclick="closeLoginModal()" class="w-1/2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold py-2.5 rounded-lg">Batal</button>
+                    <button type="submit" class="w-1/2 bg-amber-500 hover:bg-amber-600 text-slate-900 text-xs font-bold py-2.5 rounded-lg shadow">Login</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: ANGGOTA CRUD -->
+    <div id="employeeModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
+            <h3 id="empModalTitle" class="text-base font-bold text-slate-800 border-b pb-2">Tambah Anggota Baru</h3>
+            <form onsubmit="handleEmployeeSubmit(event)" class="space-y-3">
+                <input type="hidden" id="empIdHidden">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">NBA (Nomor Baku Anggota)</label>
+                    <input type="text" id="empNip" required placeholder="IPM001" class="w-full bg-slate-50 border border-slate-300 text-xs rounded-lg p-2.5">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Nama Lengkap</label>
+                    <input type="text" id="empName" required placeholder="Nama lengkap..." class="w-full bg-slate-50 border border-slate-300 text-xs rounded-lg p-2.5">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Bidang / Ranting</label>
+                    <select id="empDeptSelect" required class="w-full bg-slate-50 border border-slate-300 text-xs rounded-lg p-2.5"></select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Jabatan</label>
+                    <select id="empPosSelect" required class="w-full bg-slate-50 border border-slate-300 text-xs rounded-lg p-2.5"></select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Email</label>
+                    <input type="email" id="empEmail" required placeholder="email@ipm.or.id" class="w-full bg-slate-50 border border-slate-300 text-xs rounded-lg p-2.5">
+                </div>
+                <div class="flex gap-2 pt-3">
+                    <button type="button" onclick="closeEmployeeModal()" class="w-1/2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold py-2.5 rounded-lg">Batal</button>
+                    <button type="submit" class="w-1/2 bg-amber-500 hover:bg-amber-600 text-slate-900 text-xs font-bold py-2.5 rounded-lg shadow">Simpan Data</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: DISPLAY QR CODE -->
+    <div id="qrModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4 text-center">
+            <h3 class="text-base font-bold text-slate-800">Kartu Anggota QR Code IPM</h3>
+            <p id="qrModalSub" class="text-xs text-slate-500">Scan QR Code ini pada menu Absen Instan.</p>
+            <div id="qrcodeContainer" class="bg-white p-4 rounded-xl inline-block border border-slate-200 shadow-inner"></div>
+            <div>
+                <button type="button" onclick="closeQrModal()" class="w-full bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold py-2.5 rounded-lg">Tutup</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: VIEWER KIOSK -->
+    <div id="viewerModal" class="fixed inset-0 bg-slate-900 z-50 flex flex-col hidden p-6 text-white overflow-y-auto">
+        <div class="flex justify-between items-center border-b border-slate-800 pb-4 mb-6">
+            <div class="flex items-center space-x-3">
+                <div class="bg-amber-500 text-slate-900 p-2.5 rounded-xl"><i class="fa-solid fa-desktop text-2xl"></i></div>
+                <div>
+                    <h2 class="text-xl font-black">IPM Presensi Monitor Kiosk</h2>
+                    <p class="text-xs text-slate-400">Live Stream Absensi & Google Maps GPS</p>
+                </div>
+            </div>
+            <button onclick="closeViewerModal()" class="bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-xl text-xs font-bold transition">Tutup Monitor</button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <div class="md:col-span-1 bg-slate-800 p-6 rounded-2xl border border-slate-700 text-center flex flex-col justify-center">
+                <div id="viewerClock" class="text-4xl font-black text-amber-400 mb-2">00:00:00</div>
+                <div id="viewerDate" class="text-sm text-slate-400 uppercase tracking-widest">Loading Date...</div>
+                <div class="mt-6 pt-6 border-t border-slate-700">
+                    <div class="text-xs text-slate-400 uppercase">Total Anggota Hadir Hari Ini</div>
+                    <div id="viewerTotalHadir" class="text-5xl font-black text-emerald-400 mt-2">0</div>
+                </div>
+            </div>
+
+            <div class="md:col-span-2 bg-slate-800 p-6 rounded-2xl border border-slate-700 flex flex-col">
+                <h3 class="text-sm font-bold text-slate-300 mb-4 flex items-center">
+                    <i class="fa-solid fa-list-check mr-2 text-amber-400"></i> Aktivitas Absensi Terbaru
+                </h3>
+                <div class="overflow-x-auto flex-1">
+                    <table class="w-full text-xs text-left text-slate-300">
+                        <thead class="bg-slate-700 text-slate-200 uppercase">
+                            <tr>
+                                <th class="p-3 rounded-l-lg">Waktu</th>
+                                <th class="p-3">Nama Anggota</th>
+                                <th class="p-3">Sesi</th>
+                                <th class="p-3">Lokasi / Maps</th>
+                                <th class="p-3 rounded-r-lg">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="viewerTableBody" class="divide-y divide-slate-700/50">
+                            <tr><td colspan="5" class="text-center py-6 text-slate-500">Menunggu aktivitas presensi...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- External JavaScript -->
+    <script src="script.js"></script>
+</body>
+</html>
